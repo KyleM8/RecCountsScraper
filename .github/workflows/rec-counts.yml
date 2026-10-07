@@ -2,7 +2,7 @@ name: Log rec counts
 
 on:
   schedule:
-    - cron: "8,38 * * * *"   # every 30 minutes, all day
+    - cron: "18,48 * * * *"   # every 30 minutes, all day
   workflow_dispatch:          # adds a manual "Run workflow" button
 
 permissions:
