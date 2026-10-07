@@ -1,0 +1,66 @@
+name: Log rec counts
+
+on:
+  schedule:
+    # Every 30 min from 11:00 to 06:59 UTC. This covers 6am-midnight Lubbock time
+    # in both daylight (UTC-5) and standard (UTC-6) time; the gate step below
+    # skips the few runs that fall outside the real window.
+    - cron: "*/30 11-23,0-6 * * *"
+  workflow_dispatch:          # adds a manual "Run workflow" button
+
+permissions:
+  contents: write             # lets the job commit the CSV back to the repo
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    env:
+      TZ: America/Chicago     # makes `date` and the CSV's logged_at use Lubbock time
+    steps:
+      - name: Check rec center hours (6am - midnight local)
+        id: gate
+        run: |
+          H=$(date +%-H)      # local hour, 0-23
+          M=$(date +%-M)      # local minute, 0-59
+          if [ "$H" -ge 6 ] || { [ "$H" -eq 0 ] && [ "$M" -lt 15 ]; } \
+             || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Outside 6am-midnight local time (now $H:$M); skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Chromium browser
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-v1
+
+      - name: Install Playwright and Chromium
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Run scraper
+        if: steps.gate.outputs.run == 'true'
+        run: python scrape_counts.py
+
+      - name: Commit CSV if it changed
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name "rec-counts-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add rec_counts.csv || true
+          git diff --staged --quiet || (git commit -m "Update rec counts" && git push)
