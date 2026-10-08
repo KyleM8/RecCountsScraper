@@ -72,42 +72,72 @@ def scrape_once():
     return frames
 
 
-def last_logged_updates():
-    """
-    Read the existing CSV and return {facility: most recent site_last_updated}.
-    Later rows overwrite earlier ones, so the dict ends up holding the newest.
-    """
-    if not CSV_PATH.exists():
-        return {}
-    last = {}
+FIXED_COLS = ["logged_at", "site_last_updated"]
+
+
+def read_csv():
+    """Return (header_list, list_of_row_dicts) from the CSV, or ([], []) if none."""
+    if not CSV_PATH.exists() or CSV_PATH.stat().st_size == 0:
+        return [], []
     with CSV_PATH.open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            last[row["facility"]] = row["site_last_updated"]
-    return last
+        reader = csv.DictReader(f)
+        return list(reader.fieldnames or []), list(reader)
 
 
-def append_rows(rows):
-    """Append only readings whose 'Last Updated' differs from the last one logged."""
-    last = last_logged_updates()
-    new_rows = []
-    for name, updated, pct in rows:
-        if last.get(name) == updated:
-            continue  # site hasn't refreshed this facility; skip it
-        new_rows.append((name, updated, pct))
-        last[name] = updated  # also guards against duplicates within one run
+def write_csv(fieldnames, rows):
+    """Rewrite the whole CSV (used for first creation, conversion, new columns)."""
+    with CSV_PATH.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames, restval="")
+        w.writeheader()
+        w.writerows(rows)
 
-    if not new_rows:
+
+def append_row(readings):
+    """
+    readings = [(facility, site_last_updated, percent), ...] from one scrape.
+    Writes ONE row containing every facility, unless the site's "Last Updated"
+    values are the same as in the most recent row. Returns 1 if a row was
+    added, 0 if skipped.
+    """
+    fieldnames, rows = read_csv()
+    rewrite = False  # True when the whole file must be rewritten (new file / new column)
+
+    # Refuse to touch a file still in the old one-row-per-facility layout
+    if "facility" in fieldnames:
+        raise RuntimeError(
+            f"{CSV_PATH} is in the old format. Run convert_csv.py on it first."
+        )
+
+    # Combine the site's update times into one string, e.g. "10:50 PM"
+    # (if facilities disagree: "10:50 PM / 10:55 PM")
+    updated_values = []
+    for _, updated, _ in readings:
+        if updated not in updated_values:
+            updated_values.append(updated)
+    updated_str = " / ".join(updated_values)
+
+    # Skip if the site hasn't refreshed since the last logged row
+    if rows and rows[-1].get("site_last_updated") == updated_str:
         return 0
 
-    new_file = not CSV_PATH.exists()
-    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        if new_file:
-            w.writerow(["logged_at", "facility", "site_last_updated", "percent_full"])
-        for name, updated, pct in new_rows:
-            w.writerow([stamp, name, updated, pct])
-    return len(new_rows)
+    # Build the single new row
+    row = {"logged_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "site_last_updated": updated_str}
+    if not fieldnames:
+        fieldnames = list(FIXED_COLS)
+        rewrite = True  # brand-new file needs a header
+    for name, _, pct in readings:
+        row[name] = pct
+        if name not in fieldnames:  # a facility we haven't seen before
+            fieldnames.append(name)
+            rewrite = True
+
+    if rewrite:
+        write_csv(fieldnames, rows + [row])
+    else:
+        with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
+            csv.DictWriter(f, fieldnames=fieldnames, restval="").writerow(row)
+    return 1
 
 
 def main():
@@ -129,11 +159,11 @@ def main():
     if not rows:
         print("No counts parsed. Run with --discover and check the output.")
         return
-    added = append_rows(rows)
-    skipped = len(rows) - added
-    print(f"{datetime.now():%H:%M:%S} added {added} new rows, "
-          f"skipped {skipped} unchanged, in {CSV_PATH}")
-
+    added = append_row(rows)
+    if added:
+        print(f"{datetime.now():%H:%M:%S} added 1 row ({len(rows)} facilities) to {CSV_PATH}")
+    else:
+        print(f"{datetime.now():%H:%M:%S} site not updated since last row; nothing added")
 
 if __name__ == "__main__":
     if "--loop" in sys.argv:

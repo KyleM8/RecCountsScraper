@@ -1,10 +1,11 @@
-logged_at,facility,site_last_updated,percent_full
-2026-10-07 00:36:46,Raider Power Zone,10:50 PM,24
-2026-10-07 00:36:46,Front Courts,10:50 PM,40
-2026-10-07 00:36:46,Indoor Soccer Court,10:50 PM,0
-2026-10-07 00:36:46,Machine Weight Room,10:50 PM,46
-2026-10-07 00:36:46,Free Weight Room,10:50 PM,36
-2026-10-07 00:36:46,Back Courts,10:50 PM,40
-2026-10-07 00:36:46,Main Level Cardio,10:50 PM,17
-2026-10-07 00:36:46,Indoor Track,10:50 PM,6
-2026-10-07 00:36:46,Track Level Cardio,10:50 PM,31
+logged_at,site_last_updated,Raider Power Zone,Front Courts,Indoor Soccer Court,Machine Weight Room,Free Weight Room,Back Courts,Main Level Cardio,Indoor Track,Track Level Cardio
+2026-10-07 00:36:46,10:50 PM,24,40,0,46,36,40,17,6,31
+2026-10-07 07:27:21,6:54 AM,18,8,0,20,30,0,14,6,8
+2026-10-07 12:32:51,11:32 AM,31,24,2,47,30,26,10,3,11
+2026-10-07 14:31:25,1:56 PM,17,7,0,37,42,3,10,3,17
+2026-10-07 17:22:46,5:14 PM,32,44,1,34,53,44,27,6,27
+2026-10-07 21:04:16,8:53 PM,41,46,8,53,40,69,27,8,26
+2026-10-07 23:23:39,10:38 PM / 10:39 PM,23,29,11,33,43,44,16,3,21
+2026-10-08 08:11:12,7:43 AM,16,2,0,19,17,0,8,2,11
+2026-10-08 10:38:52,9:56 AM,23,6,0,17,19,1,4,4,7
+2026-10-08 10:57:39,10:54 AM,28,22,2,13,22,28,7,1,13
